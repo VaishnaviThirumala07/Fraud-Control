@@ -124,13 +124,8 @@ const STEP_INDEX_TO_KEY: Record<number, string> = {
 
 // ── Dynamic URL Resolution (Works locally & on Daytona CDE) ────────────────
 const getWsUrl = () => {
-  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL as string;
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    const backendHost = window.location.hostname.replace('5173', '8000');
-    return `${protocol}//${backendHost}/ws/stream`;
-  }
-  return 'ws://localhost:8000/ws/stream';
+  return `${protocol}//${window.location.host}/ws/stream`;
 };
 
 const WS_URL = getWsUrl();
