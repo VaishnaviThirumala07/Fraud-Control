@@ -6,6 +6,8 @@ services:
     command: sh -c "sleep infinity"
     stdin_open: true
     tty: true
+    env_file:
+      - .env
     volumes:
       - .:/app
       - frontend_node_modules:/app/frontend/node_modules
