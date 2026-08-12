@@ -56,7 +56,7 @@ services:
     command:
       - redpanda start
       - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
-      - --advertise-kafka-addr internal://localhost:9092,external://localhost:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
       - --pandaproxy-addr 0.0.0.0:8082
       - --advertise-pandaproxy-addr localhost:8082
       - --schema-registry-addr 0.0.0.0:8081
