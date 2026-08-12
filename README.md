@@ -169,3 +169,29 @@ In our final massive architectural shift, we replaced the slow, REST-based "pull
 In our ultimate evolution, we embedded graph-level intelligence directly into the millisecond-latency Fast Path:
 1. **Continuous Graph Ingestion**: We upgraded the FastAPI backend to asynchronously perform Cypher `MERGE` operations on every streamed transaction. This upserts new `TransactionNode`s and connects them to users in near real-time, allowing the Graph Agent to query a constantly evolving network topology.
 2. **Graph Neural Networks (GNNs)**: We wrote a training pipeline that distills the entire Neo4j graph into a mathematical vector space using **Node2Vec**. These structural embeddings (e.g. `gnn_emb_0`, `gnn_emb_1`) were then fed into a newly trained XGBoost model (`xgb_model_gnn.json`). Now, the XGBoost Fast Path executes with deep relational graph awareness in milliseconds, completely bypassing the need for an expensive Cypher query on every single transaction!
+
+# Start up Commands
+
+```bash
+dockerd > /tmp/dockerd.log 2>&1 & sleep 5 && docker info
+```
+
+```bash
+docker compose up -d --build
+```
+
+```bash
+docker compose logs -f frontend
+```
+
+```bash
+docker compose logs -f backend
+```
+
+```bash
+daytona preview-url 8df97f41-f00a-4ec7-8762-5904c3731d88 --port 5173
+```
+
+```bash
+docker compose exec dev sh -lc 'cd /app/pipeline && uv run python producer.py'
+```
