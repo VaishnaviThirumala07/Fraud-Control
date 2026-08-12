@@ -1,4 +1,18 @@
 services:
+  dev:
+    build:
+      context: .
+    working_dir: /app
+    command: sh -c "sleep infinity"
+    stdin_open: true
+    tty: true
+    volumes:
+      - .:/app
+      - frontend_node_modules:/app/frontend/node_modules
+    ports:
+      - "5173:5173"
+      - "8000:8000"
+
   redpanda:
     image: docker.io/redpandadata/redpanda:v23.2.14
     container_name: redpanda
@@ -38,4 +52,5 @@ services:
       - neo4j_data:/data
 
 volumes:
+  frontend_node_modules:
   neo4j_data:
