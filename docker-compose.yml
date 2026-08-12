@@ -2,6 +2,9 @@ services:
   redpanda:
     image: docker.io/redpandadata/redpanda:v23.2.14
     container_name: redpanda
+    # Keep the development broker from consuming all Docker Desktop resources.
+    cpus: 1.0
+    mem_limit: 1g
     command:
       - redpanda start
       - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
@@ -19,9 +22,15 @@ services:
   neo4j:
     image: neo4j:5.15.0
     container_name: neo4j
+    # Bound Neo4j's JVM and container resources for local development.
+    cpus: 1.0
+    mem_limit: 1g
     environment:
       - NEO4J_AUTH=neo4j/fraudcontrol
       - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_server_memory_heap_initial__size=256m
+      - NEO4J_server_memory_heap_max__size=512m
+      - NEO4J_server_memory_pagecache_size=256m
     ports:
       - "7474:7474"
       - "7687:7687"
