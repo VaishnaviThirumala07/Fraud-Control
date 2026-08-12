@@ -8,6 +8,9 @@ services:
     tty: true
     env_file:
       - .env
+    environment:
+      KAFKA_BROKER: redpanda:9092
+      NEO4J_URI: bolt://neo4j:7687
     volumes:
       - .:/app
       - frontend_node_modules:/app/frontend/node_modules
@@ -19,6 +22,9 @@ services:
     command: sh -c "uv sync && uv run uvicorn api:app --host 0.0.0.0 --port 8000 --reload"
     env_file:
       - .env
+    environment:
+      KAFKA_BROKER: redpanda:9092
+      NEO4J_URI: bolt://neo4j:7687
     volumes:
       - .:/app
       - pipeline_venv:/app/pipeline/.venv
