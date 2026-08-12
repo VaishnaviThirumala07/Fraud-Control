@@ -1,0 +1,54 @@
+Loading dataset from: C:\Users\linga/Downloads/paysim.csv
+Shape: (6362620, 11)
+Columns: ['step', 'type', 'amount', 'nameOrig', 'oldbalanceOrg', 'newbalanceOrig', 'nameDest', 'oldbalanceDest', 'newbalanceDest', 'isFraud', 'isFlaggedFraud']
+Load took 8.8s
+Using target column: 'isFraud'
+Class balance:
+isFraud
+0    6354407
+1       8213
+Name: count, dtype: int64
+
+Running in --realistic mode (pre-transaction features only)
+
+Dropping identifier columns: ['nameOrig', 'nameDest']
+[realistic mode] Dropping post-transaction columns: ['newbalanceOrig', 'newbalanceDest']
+One-hot encoded categorical columns: ['type']
+Training XGBoost model on 5,090,096 rows / 10 features...
+Training took 228.8s
+
+=== Evaluation ===
+Accuracy:  0.9951
+Precision: 0.2056
+Recall:    0.9836
+F1:        0.3401
+ROC-AUC:   0.9995
+
+Confusion matrix:
+[[1264637    6244]
+ [     27    1616]]
+
+Classification report:
+              precision    recall  f1-score   support
+
+           0       1.00      1.00      1.00   1270881
+           1       0.21      0.98      0.34      1643
+
+    accuracy                           1.00   1272524
+   macro avg       0.60      0.99      0.67   1272524
+weighted avg       1.00      1.00      1.00   1272524
+
+
+=== Top 15 feature importances ===
+type_CASH_IN      0.491127
+type_PAYMENT      0.337011
+type_CASH_OUT     0.041348
+oldbalanceOrg     0.040694
+type_TRANSFER     0.037941
+amount            0.029352
+type_DEBIT        0.008420
+oldbalanceDest    0.007392
+step              0.005989
+isFlaggedFraud    0.000725
+
+Model saved to: C:\Users\linga\Downloads\hackathon\xgb_model_realistic.json

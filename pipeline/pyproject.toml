@@ -1,0 +1,31 @@
+[project]
+name = "pipeline"
+version = "0.1.0"
+description = "Fraud control backend pipeline"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas",
+    "numpy",
+    "xgboost",
+    "faker",
+    "fastapi",
+    "uvicorn[standard]",
+    "python-dotenv",
+    "pydantic>=2",
+    "pypdf",
+    "llama-index-core",
+    "llama-index-llms-openai",
+    "llama-index-embeddings-openai",
+    "neo4j",
+    "aiokafka",
+    "kafka-python",
+    "pika",
+    "aio-pika",
+    "confluent-kafka>=2.15.0",
+    "scikit-learn>=1.7.2",
+    "torch",
+    "pytorch-tabnet",
+    "chromadb>=1.5.9",
+    "llama-index-vector-stores-chroma",
+]

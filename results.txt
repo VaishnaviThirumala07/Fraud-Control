@@ -1,0 +1,100 @@
+XGBoost Fraud Detection — Results Summary
+==========================================
+Dataset: paysim.csv (PaySim synthetic mobile-money transactions)
+Rows: 6,362,620 | Features used: 14 | Target: isFraud
+Train/test split: 80/20 (stratified) -> 5,090,096 train / 1,272,524 test
+Class balance: 6,354,407 legit (99.87%) vs 8,213 fraud (0.13%)
+
+Model: XGBClassifier
+  n_estimators=300, max_depth=6, learning_rate=0.1
+  subsample=0.8, colsample_bytree=0.8
+  scale_pos_weight=~773 (to counter class imbalance)
+  tree_method=hist
+Training time: 131.2s
+
+Test Set Metrics
+-----------------
+Accuracy:  1.0000
+Precision: 0.9738
+Recall:    0.9951
+F1 Score:  0.9843
+ROC-AUC:   0.9998
+
+Confusion Matrix
+-----------------
+                 Predicted Legit   Predicted Fraud
+Actual Legit         1,270,837              44
+Actual Fraud                  8           1,635
+
+-> Caught 1,635 / 1,643 fraud cases (8 missed), with only 44 false alarms
+   out of 1,270,881 legitimate transactions.
+
+Top Feature Importances
+-------------------------
+1. newbalanceOrig      0.3618
+2. type_CASH_IN         0.2376
+3. errorBalanceOrig     0.2258   (engineered: oldbalanceOrg - amount - newbalanceOrig)
+4. type_PAYMENT          0.1214
+5. oldbalanceOrg          0.0123
+6. amount                 0.0109
+7. type_DEBIT             0.0096
+8. errorBalanceDest       0.0047   (engineered: oldbalanceDest + amount - newbalanceDest)
+9. isFlaggedFraud          0.0043
+10. type_TRANSFER          0.0040
+11. type_CASH_OUT          0.0028
+12. oldbalanceDest         0.0022
+13. step                   0.0015
+14. newbalanceDest         0.0013
+
+Key Takeaway
+-------------
+Fraud in PaySim is almost always accompanied by an inconsistency between
+the sender's old balance, the transaction amount, and the sender's new
+balance (errorBalanceOrig). This engineered feature, combined with the
+raw balance columns and transaction type, gives near-perfect separability.
+Because PaySim fraud is synthetically generated with rule-based patterns,
+these results (AUC 0.9998) are expected for this dataset and should not
+be taken as representative of real-world fraud detection performance.
+
+Why "Accuracy: 1.0000" Is Misleading
+--------------------------------------
+1. Rounding artifact: exact accuracy is 99.9959% (52 wrong out of
+   1,272,524), not literally 100%. It rounds up at 4 decimal places.
+
+2. Accuracy is the wrong metric for 0.13%-prevalence data. A naive
+   model that always predicts "legit" already scores 99.8709%
+   accuracy. The 99.9959% achieved here is only a ~10% relative
+   reduction in error over doing nothing -- precision (97.38%),
+   recall (99.51%), F1 (98.43%) on the fraud class are the numbers
+   that actually describe performance, and none of those are 100%
+   (8 missed frauds, 44 false alarms).
+
+3. Root cause of the near-perfect separability: PaySim bakes in
+   deterministic fraud signatures during its synthetic generation,
+   verified directly against the raw data:
+     - Fraud occurs ONLY in TRANSFER/CASH_OUT types -- 0 fraud cases
+       in PAYMENT, CASH_IN, or DEBIT. This is a rule of the simulator,
+       not a real-world pattern.
+     - errorBalanceOrig is ~0 for fraud (median exactly 0.0, tight
+       spread) because the simulator drains the account by exactly
+       the transacted amount. Legit transactions have a much larger,
+       noisier balance error (median -69,000) due to unrelated data
+       artifacts in PaySim's legit-transaction balances.
+     - 98.05% of fraud rows leave newbalanceOrig == 0 (fully drained
+       account) vs only 56.68% of legit rows.
+   These are documented weaknesses of PaySim as a fraud benchmark --
+   multiple papers/Kaggle discussions note it is trivially separable
+   compared to real-world fraud data.
+
+4. Temporal leakage caveat: newbalanceOrig/newbalanceDest are
+   POST-transaction fields (36% of feature importance came from
+   newbalanceOrig alone). A live, pre-transaction fraud-prevention
+   system would not have these values yet at decision time. See
+   results_realistic.txt for a rerun using only fields available
+   before a transaction completes.
+
+Artifacts
+----------
+Model file:      xgb_model.json
+Full run log:    training_log.txt
+Training script: train_xgboost.py

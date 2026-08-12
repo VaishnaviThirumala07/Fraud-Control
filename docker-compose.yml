@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.2.14
+    container_name: redpanda
+    command:
+      - redpanda start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://localhost:9092,external://localhost:19092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+      - --schema-registry-addr 0.0.0.0:8081
+      - --advertise-schema-registry-addr localhost:8081
+      - --mode dev-container
+      - --smp 1
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+      - "9644:9644"
+
+  neo4j:
+    image: neo4j:5.15.0
+    container_name: neo4j
+    environment:
+      - NEO4J_AUTH=neo4j/fraudcontrol
+      - NEO4J_PLUGINS=["apoc"]
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+
+volumes:
+  neo4j_data:

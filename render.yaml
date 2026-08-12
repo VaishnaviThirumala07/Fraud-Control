@@ -1,0 +1,39 @@
+services:
+  # Backend Web Service (FastAPI)
+  - type: web
+    name: fraud-detection-backend
+    env: python
+    buildCommand: "cd pipeline && pip install -r requirements.txt"
+    startCommand: "cd pipeline && uvicorn api:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: KAFKA_BROKER
+        value: "" # Fill this in on Render Dashboard (e.g. Upstash Kafka URI)
+      - key: NEO4J_URI
+        value: "" # Fill this in on Render Dashboard (e.g. AuraDB URI)
+      - key: NEO4J_USER
+        value: "" # Fill this in on Render Dashboard
+      - key: NEO4J_PASSWORD
+        value: "" # Fill this in on Render Dashboard
+      - key: CLOUDAMQP_URL
+        value: "" # Fill this in on Render Dashboard (CloudAMQP connection URL)
+      - key: GEMINI_API_KEY
+        value: "" # Fill this in on Render Dashboard
+      - key: OPENAI_API_KEY
+        value: "" # Fill this in on Render Dashboard
+      - key: MOCK_LLM_INVESTIGATIONS
+        value: "true" # Set to "false" to enable live OpenAI calls
+
+  # Frontend Static Site (Vite / React)
+  - type: web
+    name: fraud-detection-frontend
+    env: static
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: "./frontend/dist"
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: fraud-detection-backend
+          envVarKey: RENDER_EXTERNAL_URL

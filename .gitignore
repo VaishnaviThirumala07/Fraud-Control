@@ -1,0 +1,28 @@
+# Secrets -- never commit
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+.claude
+# Frontend
+node_modules/
+frontend/node_modules/
+.npm/
+dist/
+build/
+
+# Local Data Files
+paysim.csv
+*.csv
+pipeline/data/
+data/
+pipeline/storage/

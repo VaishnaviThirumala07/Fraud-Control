@@ -1,0 +1,20 @@
+{
+  "name": "FraudControl CDE Environment",
+  "image": "mcr.microsoft.com/devcontainers/python:3.10-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "forwardPorts": [8000, 5173, 7474, 7687],
+  "postCreateCommand": "pip install -r pipeline/requirements.txt && cd frontend && npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
+}
