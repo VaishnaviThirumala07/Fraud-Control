@@ -11,9 +11,35 @@ services:
     volumes:
       - .:/app
       - frontend_node_modules:/app/frontend/node_modules
+
+  backend:
+    build:
+      context: .
+    working_dir: /app/pipeline
+    command: sh -c "uv sync && uv run uvicorn api:app --host 0.0.0.0 --port 8000 --reload"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - pipeline_venv:/app/pipeline/.venv
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redpanda
+      - neo4j
+
+  frontend:
+    build:
+      context: .
+    working_dir: /app/frontend
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - frontend_node_modules:/app/frontend/node_modules
     ports:
       - "5173:5173"
-      - "8000:8000"
 
   redpanda:
     image: docker.io/redpandadata/redpanda:v23.2.14
@@ -55,4 +81,5 @@ services:
 
 volumes:
   frontend_node_modules:
+  pipeline_venv:
   neo4j_data:
