@@ -15,6 +15,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
 CLOUDAMQP_URL = os.getenv("CLOUDAMQP_URL")
 TOPIC = os.getenv("KAFKA_TOPIC", "transactions-in")
+TRANSACTION_INTERVAL = float(os.getenv("TRANSACTION_INTERVAL", "25"))
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
@@ -110,7 +111,7 @@ def main():
             except Exception as e:
                 print(f"Failed to publish: {e}")
                 
-            time.sleep(1) # Stream 1 transaction every 25 seconds to avoid Gemini rate limits
+            time.sleep(TRANSACTION_INTERVAL) # Stream 1 transaction every TRANSACTION_INTERVAL seconds to avoid rate limits / queue bottleneck
     finally:
         if rabbitmq_connection:
             rabbitmq_connection.close()

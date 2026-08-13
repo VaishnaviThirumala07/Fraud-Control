@@ -708,7 +708,11 @@ async def investigate(
     transaction: TransactionData, customer: CustomerData
 ) -> InvestigationReport:
     """Entry point: run the parallel multi-agent investigation workflow."""
-    if os.environ.get("MOCK_LLM", "").lower() in ("true", "1"):
+    is_mock = (
+        os.environ.get("MOCK_LLM", "").lower() in ("true", "1") or
+        os.environ.get("MOCK_LLM_INVESTIGATIONS", "").lower() in ("true", "1")
+    )
+    if is_mock:
         cust_id = customer.customer_id
         await _emit_thinking("Orchestrator", f"[MOCK] Dispatching 4 specialist agents for {cust_id}", 0, cust_id)
         await asyncio.sleep(0.2)

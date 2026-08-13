@@ -1,81 +1,95 @@
-# 🛡️ FraudControl: Next-Gen AI Fraud Investigation Platform
+# 🛡️ FraudControl: Next-Gen Autonomous AI Fraud Investigation Platform (v2 Architecture)
 
-FraudControl is an advanced, production-grade fraud detection and investigation platform. It combines the blazing speed of traditional Machine Learning (XGBoost) for real-time inference with the deep, nuanced reasoning capabilities of Large Language Models (LLMs) orchestrated in a multi-agent workflow.
+FraudControl is an advanced, production-grade fraud detection and investigation platform. It combines the millisecond speed of traditional Machine Learning (XGBoost + GNN Node2Vec Embeddings) for real-time inference with the deep, nuanced reasoning capabilities of Large Language Models (LLMs) orchestrated in a 4-agent parallel workflow with autonomous self-reflection and action execution.
 
 ---
 
 ## 🚀 Quick Start (Running the Application)
 
-To bring the entire platform online locally, open 3 separate terminals:
+To bring the entire platform online locally or in a container environment, follow these steps:
 
-**1. Start the Infrastructure (Terminal 1)**
+### Option A: Local Docker Compose (Recommended)
 ```bash
-# Start Kafka and Neo4j via Docker
-docker start redpanda neo4j
+# 1. Start all containerized services (Kafka/Redpanda, Neo4j, FastAPI Backend, React Frontend)
+docker compose up -d --build
+
+# 2. Start the Real-Time Transaction Producer Stream
+docker compose exec dev sh -lc 'cd /app/pipeline && uv run python producer.py'
 ```
+Then navigate to **http://localhost:5173** to access the live dashboard!
 
-**2. Start the Backend API & AI Agents (Terminal 1)**
+### Option B: Terminal-by-Terminal Local Execution
 ```bash
+# Terminal 1: Infrastructure (Kafka + Neo4j)
+docker start redpanda neo4j
+
+# Terminal 2: FastAPI Backend API & AI Agents
 cd pipeline
 uvicorn api:app --reload --port 8000
-```
 
-**3. Start the Real-Time Kafka Stream (Terminal 2)**
-```bash
+# Terminal 3: Real-Time Producer Stream (Streams 1 transaction every 25s)
 cd pipeline
 python producer.py
-```
 
-**4. Start the React Dashboard (Terminal 3)**
-```bash
+# Terminal 4: React Dashboard
 cd frontend
 npm run dev
 ```
-Then navigate to **http://localhost:5173** to watch the agents investigate live!
 
 ---
 
 ## 🏗️ System Architecture Flowchart
 
-The system operates on a real-time Event-Driven architecture powered by Apache Kafka and WebSockets.
+The system operates on an event-driven architecture powered by Kafka / RabbitMQ and real-time WebSockets streaming.
 
 ```mermaid
 flowchart TD
     subgraph Stream [Event-Driven Stream]
-        Kafka[Apache Kafka Topic<br>transactions-in]
-        Producer(producer.py) -->|Publishes every 25s| Kafka
+        Producer(producer.py) -->|Publishes every 25s| Queue[Kafka / RabbitMQ Topic]
     end
 
-    subgraph FastPath [Fast Path: Machine Learning]
-        Consumer(api.py Kafka Consumer)
-        Kafka --> Consumer
-        XGBoost{XGBoost Model}
+    subgraph FastPath [Fast Path: Millisecond Inference]
+        Consumer(api.py Consumer)
+        Queue --> Consumer
+        XGBoost{XGBoost Classifier + GNN Embeddings}
         Consumer -->|Evaluate Risk| XGBoost
+        Consumer -->|Async Cypher MERGE| Neo4j[(Neo4j Graph)]
     end
 
-    subgraph SlowPath [Slow Path: LlamaIndex Multi-Agent Workflow]
+    subgraph SlowPath [Slow Path: LlamaIndex Multi-Agent Workflow v2]
         direction TB
-        TxAgent[Transaction Agent]
-        CustAgent[Customer Agent]
-        GraphAgent[(Graph Agent<br>Neo4j)]
+        subgraph Agents [Parallel Specialist Agents]
+            TxAgent[1. Transaction Agent]
+            CustAgent[2. Customer Agent]
+            GraphAgent[3. Graph Agent]
+            MemAgent[4. Memory Agent SQLite]
+        end
         
-        XGBoost -- Flagged > 60% --> TxAgent
-        XGBoost -- Flagged > 60% --> CustAgent
-        XGBoost -- Flagged > 60% --> GraphAgent
+        XGBoost -- Flagged > 60% --> Agents
         
-        ReasoningAgent[Reasoning Agent<br>w/ RAG Policy Knowledge]
+        RAG[(ChromaDB RAG Policy Base)]
         
-        TxAgent --> ReasoningAgent
-        CustAgent --> ReasoningAgent
-        GraphAgent --> ReasoningAgent
+        Agents --> Supervisor[Supervisor Agent]
+        RAG <-->|Policy Search| Supervisor
+        
+        Supervisor --> SelfReflection{Confidence < 75%?}
+        SelfReflection -- Yes -->|Refine RAG Query & Re-reason| Supervisor
     end
 
-    subgraph UI [React Frontend]
-        WebSockets((WebSockets))
-        Dashboard[Fraud Investigation Dashboard]
+    subgraph Execution [Autonomous Action & Persistence]
+        ActionEngine[Action Agent]
+        SelfReflection -- Final Decision --> ActionEngine
+        ActionEngine -->|Execute Block / Hold / Approve| AuditLog[(SQLite Audit & Memory)]
+    end
+
+    subgraph UI [React Frontend Dashboard]
+        WebSockets((WebSockets Manager))
+        Dashboard[Live Compliance Dashboard]
         
-        Consumer -- Fast Path Result --> WebSockets
-        ReasoningAgent -- Synthesized Report --> WebSockets
+        Consumer -- FAST_PATH Event --> WebSockets
+        Agents -- THINKING_UPDATE Steps --> WebSockets
+        Supervisor -- SLOW_PATH SAR Report --> WebSockets
+        ActionEngine -- ACTION_TAKEN Event --> WebSockets
         WebSockets --> Dashboard
     end
 ```
@@ -84,114 +98,84 @@ flowchart TD
 
 ## 🧠 Machine Learning (The "Fast Path")
 
-The first line of defense is a highly optimized XGBoost classifier trained to instantly detect fraudulent patterns.
+The first line of defense is a highly optimized XGBoost classifier trained to instantly evaluate incoming transactions.
 
-- **Algorithm**: XGBoost (`xgboost`)
-- **Training Data**: The model is trained on a combination of the highly-regarded **PaySim dataset** (a simulated dataset of mobile money transactions based on a sample of real transactions extracted from one month of financial logs from a mobile money service implemented in an African country) and our internally generated synthetic datasets.
+- **Algorithms**: XGBoost (`xgboost`) + TabNet + Graph Neural Network structural embeddings (Node2Vec).
+- **Graph Neural Network (GNN) Integration**: Ingests Neo4j topology to generate structural embeddings (`gnn_emb_0`, `gnn_emb_1`) so the Fast Path has graph-relational awareness in milliseconds without needing a live database traversal for unflagged transactions.
 - **Core Features**:
-  - `amount`: The monetary value of the transaction.
-  - `oldbalanceOrg`: The initial balance of the origin account before the transaction.
-  - `newbalanceOrig`: The new balance of the origin account after the transaction.
-  - `oldbalanceDest`: The initial balance of the destination account before the transaction.
-  - `newbalanceDest`: The new balance of the destination account after the transaction.
-- **Outcome**: The model assigns a `risk_score` from 0-100%. If the score exceeds the 60% threshold, the transaction is **flagged** and routed to the Agentic Slow Path for deep-dive investigation. If it falls below 60%, it is instantly approved to preserve system latency.
+  - `amount`, `oldbalanceOrg`, `oldbalanceDest`, `newbalanceOrig`, `newbalanceDest`.
+  - Identity & session features (`account_age_days`, `shared_ip_count`, `recent_failed_logins`, `session_velocity_seconds`).
+  - GNN structural embedding vectors.
+- **Outcome**: Assigns a `risk_score` (0-100%). Transactions scoring > 60% are **flagged** and routed to the Agentic Slow Path for deep investigation.
 
 ---
 
-## 🤖 The Multi-Agent Workflow (The "Slow Path")
+## 🤖 The Multi-Agent Workflow (The "Slow Path v2")
 
-When a transaction is flagged, a team of specialized AI Agents is dynamically spun up using **LlamaIndex** Workflows and **OpenAI (GPT-4o/GPT-4o-mini)** models. These agents execute in **parallel** to gather context before a final decision is made.
+When a transaction is flagged, **four specialist AI agents** execute in parallel via `asyncio.gather` using **LlamaIndex Workflows** and **OpenAI (GPT-4o / GPT-4o-mini)** models.
 
 ### 1. Transaction Analysis Agent
-- **Technology**: LlamaIndex + OpenAI
-- **Role**: Analyzes the raw transaction data (amount, type, balance draining behavior) and generates a human-readable summary highlighting severe deviations (e.g., "Transaction drains nearly the entire origin account balance").
+- **Role**: Analyzes financial structure, amount velocity, balance draining behavior, and anomaly thresholds.
 
 ### 2. Customer Intelligence Agent
-- **Technology**: LlamaIndex + OpenAI
-- **Role**: Analyzes the customer's historical profile (KYC status, account age, recent failed logins, session velocity) to establish a risk profile (e.g., "Failed-login + sub-5s session velocity pattern consistent with Account Takeover").
+- **Role**: Evaluates identity signals (KYC status, PEP flags, account age, failed login clusters, sub-5s session velocity for Account Takeover detection).
 
-### 3. Graph Analysis Agent
-- **Technology**: Neo4j (Cypher) + LlamaIndex
-- **Role**: Connects to a local **Neo4j Graph Database** to perform deep network traversal. It executes Cypher queries to check if the current customer shares devices or IPs with other users in the network, identifying massive, hidden fraud rings.
+### 3. Graph Network Analysis Agent
+- **Role**: Connects to **Neo4j** via live Cypher queries to detect shared device clusters, IP overlapping, and multi-user money mule rings.
 
-### 4. Reasoning Agent (The Synthesizer)
-- **Technology**: LlamaIndex Retrieval-Augmented Generation (RAG) + OpenAI
-- **Role**: Acts as the barrier step. It waits for the first three agents to finish, collects their parallel findings, and queries an internal **AML Policy Knowledge Base** using RAG. It then synthesizes all context into a final, actionable decision ("Approve", "Hold for Review", "Block") and explicitly cites the exact AML policy sections that were violated.
+### 4. Memory Agent (Cross-Transaction Persistence)
+- **Role**: Queries a local **SQLite Memory Store** (`storage/memory.db`) to identify temporal patterns across multiple transactions over time (e.g., repeat holds, escalation after previous blocks).
 
-## 📜 AML Policy Rules (RAG Knowledge Base)
-
-The Reasoning Agent relies on a strict internal Anti-Money Laundering (AML) policy document (stored in `pipeline/knowledge_base/aml_policy.txt`) to ground its decisions. The rules it enforces include:
-
-### 1. Transaction Monitoring
-- **High-Value**: Transactions over $10,000 must be manually reviewed.
-- **Structuring (Smurfing)**: Multiple small transactions totaling over $10,000 in 24 hours require Tier 2 review.
-- **Cash Types**: `CASH_OUT` and `TRANSFER` are high-risk (the "cash-out" leg) and are held if their risk score > 60%.
-
-### 2. Customer Risk Classification
-- **KYC Status**: "Pending" KYC requires 2FA for >$2,000. "Failed" KYC blocks all outbound transfers.
-- **PEP (Politically Exposed Persons)**: Elevated to "Medium" risk, requiring Enhanced Due Diligence (EDD) for >$1,000.
-- **Network Risk**: Sharing IPs/devices with 5+ accounts indicates mule/fraud rings, requiring graph investigation.
-- **Account Takeover (ATO)**: 5+ failed logins combined with sub-5s session velocity indicates bot-driven ATO.
-
-### 3. Velocity & Behavioral
-- **Counterparties**: Transacting with 30+ unique counterparties in 30 days triggers "High (Network Risk)".
-- **Baseline Deviation**: Transaction amounts exceeding 5x the customer's historical average heavily weight the risk score.
-
-### 4. Escalation Actions
-- **0-59%**: Approve.
-- **60-84%**: Hold for Review (Slow Path) & require 2FA.
-- **85-100%**: Block pending manual review and freeze outbound transfers.
-- **SAR**: Any confirmed fraud or account violating multiple Section 2 policies requires generating a draft Suspicious Activity Report (SAR).
+### 5. Supervisor Agent with Self-Reflection Loop
+- **Role**: Collects findings from all 4 agents and queries an internal **AML Policy Knowledge Base** (ChromaDB vector index).
+- **Self-Reflection Mechanism**:
+  - Produces an initial decision and a `CONFIDENCE` score (0-100).
+  - If `CONFIDENCE < 75%`, the supervisor **autonomously triggers a self-reflection pass**: it refines its RAG policy query, re-queries ChromaDB for deeper compliance context, and re-evaluates before finalizing the Suspicious Activity Report (SAR).
 
 ---
 
-## 📅 Our Development Journey (How We Built This)
+## ⚡ Autonomous Action Engine (`action_engine.py`)
 
-We evolved this architecture sequentially from a basic MVP to a production-ready streaming platform:
+Once the investigation completes, the Action Agent autonomously executes the decision:
+- **Block**: Instantly freezes outbound transfers and registers the account in the live `blocked_accounts` registry.
+- **Hold for Review**: Places the transaction on the compliance alert feed and triggers optional customer OTP step-up verification.
+- **Approve**: Releases funds if co-occurring risk indicators are absent.
+- **Human-In-The-Loop (HITL) Overrides**: Compliance officers can inspect live reasoning streams and issue manual overrides (`/api/hitl-override`).
 
-### Phase 1: Core Intelligence
-We started by building the two brains of the operation: the ML Engine and the Agent Engine. We trained the XGBoost model on the PaySim dataset and configured the initial LlamaIndex workflow. Initially, the agents executed sequentially (Transaction -> Customer -> Reasoning) using a mocked REST endpoint.
+---
 
-### Phase 2: The React Dashboard
-We built a beautiful, dark-themed UI in React. Initially, the dashboard was "pull-based". The user had to click a "Fetch Next Transaction" button which fired an `axios` GET request to the FastAPI backend, waiting synchronously for the ML model and the agents to finish computing.
+## 📜 Configuration & Environment Settings
 
-### Phase 3: Graph Intelligence & Parallelization
-To catch complex fraud rings, we integrated **Neo4j** via Docker. We ingested synthetic nodes and edges (users, devices, transactions) into the graph database. Simultaneously, we refactored the LlamaIndex workflow: instead of running sequentially, the Transaction, Customer, and new Graph agents were reprogrammed to execute **in parallel** concurrently, dramatically cutting down the total LLM inference time.
+The pipeline configuration is managed via `pipeline/.env`:
 
-### Phase 4: Event-Driven Streaming Architecture & Advanced Queuing
-In our final massive architectural shift, we replaced the slow, REST-based "pull" model with a real-time, event-driven "push" model.
-1. We spun up an **Apache Kafka** broker in Docker.
-2. We wrote a Python producer to simulate a live production stream (publishing 1 transaction every 25 seconds).
-3. We rewrote the FastAPI backend to act as a background Kafka Consumer, successfully implementing a robust internal message queue to ensure data integrity during spikes in volume.
-4. We upgraded the React frontend to passively listen to **WebSockets** and buffer transactions in a robust UI queue. Now, transactions flow onto the screen instantly, and OpenAI agent reports gracefully stream in asynchronously seconds later, mirroring a true enterprise architecture!
+| Parameter | Default | Description |
+| :--- | :--- | :--- |
+| `OPENAI_API_KEY` | Required | API key for GPT-4o-mini reasoning & embeddings |
+| `MOCK_LLM` | `false` | Set to `true` during dev to use \$0 mock investigations |
+| `MOCK_LLM_INVESTIGATIONS` | `false` | Alternative flag supported in deployment environments |
+| `TRANSACTION_INTERVAL` | `25` | Delay in seconds between streamed transactions |
+| `KAFKA_BROKER` | `localhost:9092` | Kafka / Redpanda broker URI (`redpanda:9092` in Docker) |
+| `CLOUDAMQP_URL` | Optional | RabbitMQ / CloudAMQP connection URL |
+| `NEO4J_URI` | `bolt://localhost:7687` | Neo4j Bolt connection URI (`bolt://neo4j:7687` in Docker) |
 
-### Phase 5: Advanced Graph Intelligence (GNNs & Continuous Ingestion)
-In our ultimate evolution, we embedded graph-level intelligence directly into the millisecond-latency Fast Path:
-1. **Continuous Graph Ingestion**: We upgraded the FastAPI backend to asynchronously perform Cypher `MERGE` operations on every streamed transaction. This upserts new `TransactionNode`s and connects them to users in near real-time, allowing the Graph Agent to query a constantly evolving network topology.
-2. **Graph Neural Networks (GNNs)**: We wrote a training pipeline that distills the entire Neo4j graph into a mathematical vector space using **Node2Vec**. These structural embeddings (e.g. `gnn_emb_0`, `gnn_emb_1`) were then fed into a newly trained XGBoost model (`xgb_model_gnn.json`). Now, the XGBoost Fast Path executes with deep relational graph awareness in milliseconds, completely bypassing the need for an expensive Cypher query on every single transaction!
+---
 
-# Start up Commands
+## 🛠️ Daytona CDE & Deployment Commands
 
-```bash
-dockerd > /tmp/dockerd.log 2>&1 & sleep 5 && docker info
-```
+To run FraudControl safely in a **Daytona Cloud Development Environment**:
 
-```bash
-docker compose up -d --build
-```
+1. **Start Docker Daemon & Containers**:
+   ```bash
+   dockerd > /tmp/dockerd.log 2>&1 & sleep 5 && docker info
+   docker compose up -d --build
+   ```
 
-```bash
-docker compose logs -f frontend
-```
+2. **Expose Daytona Preview Port**:
+   ```bash
+   daytona preview-url <workspace-id> --port 5173
+   ```
 
-```bash
-docker compose logs -f backend
-```
-
-```bash
-daytona preview-url 8df97f41-f00a-4ec7-8762-5904c3731d88 --port 5173
-```
-
-```bash
-docker compose exec dev sh -lc 'cd /app/pipeline && uv run python producer.py'
-```
+3. **Launch Transaction Stream**:
+   ```bash
+   docker compose exec dev sh -lc 'cd /app/pipeline && uv run python producer.py'
+   ```
