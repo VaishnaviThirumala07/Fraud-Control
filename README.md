@@ -8,6 +8,24 @@ FraudControl is an advanced, production-grade fraud detection and investigation 
 
 To bring the entire platform online locally or in a container environment, follow these steps:
 
+> [!IMPORTANT]
+> **Step 0 — Create your `.env` file (required on every fresh clone)**
+> 
+> The `.env` file is gitignored and **must be created manually** before starting the stack.
+> Copy the template and fill in your keys:
+> ```bash
+> cp pipeline/.env.example .env
+> # Then edit .env and fill in OPENAI_API_KEY (and optionally GEMINI_API_KEY)
+> ```
+> The root `.env` is read by Docker Compose. The `pipeline/.env` is read by python-dotenv inside the app.
+> Minimum required content for `.env`:
+> ```env
+> OPENAI_API_KEY=sk-proj-your-key-here
+> GEMINI_API_KEY=your-gemini-key-here
+> MOCK_LLM=false
+> TRANSACTION_INTERVAL=25
+> ```
+
 ### Option A: Local Docker Compose (Recommended)
 ```bash
 # 1. Start all containerized services (Kafka/Redpanda, Neo4j, FastAPI Backend, React Frontend)
@@ -162,20 +180,55 @@ The pipeline configuration is managed via `pipeline/.env`:
 
 ## 🛠️ Daytona CDE & Deployment Commands
 
-To run FraudControl safely in a **Daytona Cloud Development Environment**:
+To run FraudControl safely in a **Daytona Cloud Development Environment**, follow these steps **in order**:
 
-1. **Start Docker Daemon & Containers**:
-   ```bash
-   dockerd > /tmp/dockerd.log 2>&1 & sleep 5 && docker info
-   docker compose up -d --build
-   ```
+### Step 1 — Create the `.env` file (required — gitignored, not in repo)
+```bash
+cp pipeline/.env.example .env
+```
+Then edit `.env` and paste in your real keys:
+```env
+OPENAI_API_KEY=sk-proj-your-key-here
+GEMINI_API_KEY=your-gemini-key-here
+MOCK_LLM=false
+TRANSACTION_INTERVAL=25
+```
+Also copy it into `pipeline/.env` so python-dotenv picks it up inside containers:
+```bash
+cp .env pipeline/.env
+```
 
-2. **Expose Daytona Preview Port**:
-   ```bash
-   daytona preview-url <workspace-id> --port 5173
-   ```
+### Step 2 — Start Docker Daemon & All Services
+```bash
+dockerd > /tmp/dockerd.log 2>&1 & sleep 5 && docker info
+docker compose up -d --build
+```
 
-3. **Launch Transaction Stream**:
-   ```bash
-   docker compose exec dev sh -lc 'cd /app/pipeline && uv run python producer.py'
-   ```
+### Step 3 — Verify Services Are Running
+```bash
+docker compose ps
+```
+All four services (`dev`, `backend`, `frontend`, `redpanda`, `neo4j`) should show `running`.
+
+### Step 4 — Expose the Frontend Preview Port
+```bash
+daytona preview-url <workspace-id> --port 5173
+```
+
+### Step 5 — Launch the Transaction Stream
+```bash
+docker compose exec dev sh -lc 'cd /app/pipeline && uv run python producer.py'
+```
+Transactions will now stream every 25 seconds into the live dashboard.
+
+### Useful Debugging Commands
+```bash
+# Tail backend logs (agent investigations, slow path activity)
+docker compose logs -f backend
+
+# Tail frontend logs
+docker compose logs -f frontend
+
+# Restart just the backend (e.g. after .env changes)
+docker compose restart backend
+```
